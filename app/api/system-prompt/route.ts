@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const filePath = join(process.cwd(), "data", "default_system_prompt.txt");
+    const filePath = join(process.cwd(), "data", "question_prompt.txt");
     const content = await readFile(filePath, "utf-8");
     return NextResponse.json({ prompt: content });
   } catch (error) {
@@ -15,4 +15,3 @@ export async function GET() {
     );
   }
 }
-
