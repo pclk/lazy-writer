@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { apiKey } = await request.json();
+    const { apiKey, model } = await request.json();
 
     if (!apiKey || typeof apiKey !== "string") {
       return NextResponse.json(
@@ -12,8 +12,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Test the API key and generate a greeting with Gemini
+    const selectedModel = model || "gemini-flash-latest";
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`,
       {
         method: "POST",
         headers: {
