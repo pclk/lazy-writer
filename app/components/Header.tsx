@@ -8,10 +8,25 @@ export default function Header() {
 
   const isActive = (path: string) => pathname === path;
 
+  const handleLazyWriterClick = (e: React.MouseEvent) => {
+    // Clear context and conversation state
+    localStorage.removeItem("lazy-writer-context");
+    localStorage.removeItem("lazy-writer-active-context-id");
+    
+    // Dispatch event to clear form
+    window.dispatchEvent(new CustomEvent("new-conversation"));
+    
+    // If already on home page, prevent navigation and just clear
+    if (pathname === "/") {
+      e.preventDefault();
+    }
+  };
+
   return (
     <header className="flex items-center justify-center border-b border-white">
       <Link
         href="/"
+        onClick={handleLazyWriterClick}
         className={`px-6 py-6 text-4xl font-bold transition-colors ${
           isActive("/")
             ? "text-[#fbbc4f] underline"

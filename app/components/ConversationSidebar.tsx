@@ -17,6 +17,8 @@ export default function ConversationSidebar() {
   const [isExpanded, setIsExpanded] = useState(true);
   const [currentContext, setCurrentContext] = useState("");
   const [activeContextId, setActiveContextId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<{ contextId: string; context: string } | null>(null);
 
   const loadConversations = () => {
     const loadedConversations: Conversation[] = [];
@@ -128,17 +130,36 @@ export default function ConversationSidebar() {
     };
   }, []);
 
-  const handleDelete = (e: React.MouseEvent, contextId: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, contextId: string, context: string) => {
     e.stopPropagation();
+    setConversationToDelete({ contextId, context });
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!conversationToDelete) return;
     
-    if (confirm("Are you sure you want to delete this conversation?")) {
-      localStorage.removeItem(`lazy-writer-context-${contextId}`);
-      localStorage.removeItem(`lazy-writer-history-${contextId}`);
-      loadConversations();
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new Event("conversation-updated"));
+    const { contextId } = conversationToDelete;
+    localStorage.removeItem(`lazy-writer-context-${contextId}`);
+    localStorage.removeItem(`lazy-writer-history-${contextId}`);
+    
+    // Clear active context ID if deleting the active conversation
+    if (activeContextId === contextId) {
+      setActiveContextId(null);
+      localStorage.removeItem("lazy-writer-active-context-id");
     }
+    
+    loadConversations();
+    setShowDeleteModal(false);
+    setConversationToDelete(null);
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event("conversation-updated"));
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setConversationToDelete(null);
   };
 
   const handleLoadConversation = (contextId: string) => {
@@ -302,7 +323,7 @@ export default function ConversationSidebar() {
                         </p>
                       </div>
                       <button
-                        onClick={(e) => handleDelete(e, conv.contextId)}
+                        onClick={(e) => handleDeleteClick(e, conv.contextId, conv.context)}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-500/20 rounded transition-all shrink-0"
                         aria-label="Delete conversation"
                       >
@@ -329,6 +350,49 @@ export default function ConversationSidebar() {
             )}
           </div>
         </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && conversationToDelete && (
+        <div 
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={handleDeleteCancel}
+        >
+          <div 
+            className="bg-black border-2 border-white rounded-lg max-w-lg w-full p-6 space-y-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-semibold text-white">Delete Conversation</h2>
+            
+            <p className="text-white/90">
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </p>
+
+            {/* Conversation Preview */}
+            <div className="p-4 bg-white/5 border border-white/20 rounded">
+              <p className="text-white/60 text-xs mb-2">Conversation:</p>
+              <p className="text-white text-sm">
+                {truncateText(conversationToDelete.context, 100)}
+              </p>
+            </div>
+
+            {/* Modal Buttons */}
+            <div className="flex gap-4">
+              <button
+                onClick={handleDeleteCancel}
+                className="flex-1 py-3 px-6 bg-white/20 text-white font-medium rounded transition-opacity hover:opacity-90"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

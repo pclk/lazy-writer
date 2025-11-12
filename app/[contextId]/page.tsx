@@ -464,21 +464,11 @@ export default function QuestionPage() {
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      {/* Conversation History */}
-      {conversationHistory.length > 0 && (
-        <div className="mb-8 space-y-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Previous Questions</h2>
-          {conversationHistory.map((item, idx) => (
-            <div key={idx} className="border-l-2 border-white/30 pl-4 space-y-2">
-              <p className="text-white font-medium">Q: {item.question}</p>
-              <p className="text-[#fbbc4f]">A: {item.answer}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Loading or Current MCQ */}
+    <div className="p-8 max-w-7xl mx-auto">
+      <div className={`${conversationHistory.length > 0 ? "flex gap-6 items-start" : ""}`}>
+        {/* Left Side: Main Content */}
+        <div className={`${conversationHistory.length > 0 ? "flex-1" : "w-full"}`}>
+          {/* Loading or Current MCQ */}
       {isLoadingQuestion ? (
         <div className="flex items-center justify-center py-12">
           <svg
@@ -627,6 +617,23 @@ export default function QuestionPage() {
           </div>
         </>
       ) : null}
+        </div>
+
+        {/* Right Side: Previous Questions */}
+        {conversationHistory.length > 0 && (
+          <div className="w-80 shrink-0">
+            <h2 className="text-xl font-semibold text-white mb-4">Previous Questions</h2>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              {conversationHistory.map((item, idx) => (
+                <div key={idx} className="border-l-2 border-white/30 pl-4 space-y-2">
+                  <p className="text-white font-medium text-sm">Q: {item.question}</p>
+                  <p className="text-[#fbbc4f] text-sm">A: {item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Finalize Modal */}
       {showFinalizeModal && (

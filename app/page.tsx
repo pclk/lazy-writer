@@ -280,6 +280,9 @@ export default function Home() {
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
+      <div className={`${conversationHistory.length > 0 ? "flex gap-6 items-start" : ""}`}>
+        {/* Left Side: Main Content */}
+        <div className={`${conversationHistory.length > 0 ? "flex-1" : "w-full"}`}>
           {/* API Key Field */}
       <div className="">
         <label htmlFor="api-key" className="block text-lg font-medium mb-2">
@@ -429,19 +432,6 @@ export default function Home() {
         />
       </div>
 
-      {/* Previous Questions */}
-      {conversationHistory.length > 0 && (
-        <div className="mb-6 space-y-4">
-          <h2 className="text-xl font-semibold text-white mb-4">Previous Questions</h2>
-          {conversationHistory.map((item, idx) => (
-            <div key={idx} className="border-l-2 border-white/30 pl-4 space-y-2">
-              <p className="text-white font-medium">Q: {item.question}</p>
-              <p className="text-[#fbbc4f]">A: {item.answer}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Question Me Button */}
       <button
         onClick={handleQuestionMe}
@@ -476,6 +466,23 @@ export default function Home() {
           "Question Me"
         )}
       </button>
+        </div>
+
+        {/* Right Side: Previous Questions */}
+        {conversationHistory.length > 0 && (
+          <div className="w-80 shrink-0">
+            <h2 className="text-xl font-semibold text-white mb-4">Previous Questions</h2>
+            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+              {conversationHistory.map((item, idx) => (
+                <div key={idx} className="border-l-2 border-white/30 pl-4 space-y-2">
+                  <p className="text-white font-medium text-sm">Q: {item.question}</p>
+                  <p className="text-[#fbbc4f] text-sm">A: {item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
