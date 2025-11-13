@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import MCQ from "../components/MCQ";
@@ -45,6 +45,7 @@ export default function QuestionPage() {
   const [finalizeModel, setFinalizeModel] = useState("gemini-flash-latest");
   const [finalizeModels, setFinalizeModels] = useState<Array<{ name: string; displayName: string; description: string }>>([]);
   const [isLoadingFinalizeModels, setIsLoadingFinalizeModels] = useState(false);
+  const hasCheckedContext = useRef(false);
 
   useEffect(() => {
     // Load mode from URL params or localStorage
@@ -58,6 +59,13 @@ export default function QuestionPage() {
                         localStorage.getItem("lazy-writer-context");
     if (savedContext) {
       setContext(savedContext);
+      // Clear any "Context not found" error immediately when context is loaded
+      setQuestionError((prevError) => {
+        if (prevError && prevError.includes("Context not found")) {
+          return "";
+        }
+        return prevError;
+      });
     }
 
     // Load conversation history from localStorage
@@ -122,22 +130,44 @@ export default function QuestionPage() {
 
   useEffect(() => {
     // Generate first question when context and API key are loaded
-    if (!context || !apiKey) {
-      if (!context) {
-        setQuestionError("Context not found. Please go back and enter your context.");
-        setIsLoadingQuestion(false);
-      } else if (!apiKey) {
-        setQuestionError("API key not found. Please go back and save your API key.");
-        setIsLoadingQuestion(false);
+    // Add a small delay to allow context to load from localStorage first
+    let generateTimer: NodeJS.Timeout | null = null;
+    
+    const checkTimer = setTimeout(() => {
+      // Mark that we've checked at least once
+      hasCheckedContext.current = true;
+      
+      if (!context || !apiKey) {
+        if (!context) {
+          setQuestionError("Context not found. Please go back and enter your context.");
+          setIsLoadingQuestion(false);
+        } else if (!apiKey) {
+          setQuestionError("API key not found. Please go back and save your API key.");
+          setIsLoadingQuestion(false);
+        }
+        return;
       }
-      return;
-    }
 
-    // Wait for prompts to load
-    const timer = setTimeout(() => {
-      generateQuestion(context, []);
-    }, 1000);
-    return () => clearTimeout(timer);
+      // Clear any previous errors if context and API key are now available
+      setQuestionError((prevError) => {
+        if (prevError && (prevError.includes("Context not found") || prevError.includes("API key not found"))) {
+          return "";
+        }
+        return prevError;
+      });
+
+      // Wait for prompts to load before generating question
+      generateTimer = setTimeout(() => {
+        generateQuestion(context, []);
+      }, 1000);
+    }, 150); // Small delay to allow localStorage to be read
+    
+    return () => {
+      clearTimeout(checkTimer);
+      if (generateTimer) {
+        clearTimeout(generateTimer);
+      }
+    };
   }, [context, apiKey, mode, questionPrompt, quizPrompt]);
 
   const generateQuestion = async (currentContext: string, history: ConversationItem[] = [], modelToUse?: string) => {
@@ -648,26 +678,32 @@ export default function QuestionPage() {
         <div className={`${conversationHistory.length > 0 ? "flex-1 w-full lg:w-auto" : "w-full"}`}>
           {/* Total Score - Always visible in quiz mode */}
           {mode === "quiz" && (() => {
-            let totalCorrectlySelected = 0;
-            let totalWronglySelected = 0;
+            let totalQuestionScores = 0;
             let totalCorrectOptions = 0;
             
             conversationHistory.forEach((item: ConversationItem) => {
-              if (item.isQuiz && item.hasFeedback && item.correctIndices) {
+              if (item.isQuiz && item.hasFeedback && item.correctIndices && item.options) {
                 const correctIndices = item.correctIndices;
                 const selectedIndices = item.selectedIndices || [];
                 const correctlySelected = selectedIndices.filter(idx => correctIndices.includes(idx)).length;
                 const wronglySelected = selectedIndices.filter(idx => !correctIndices.includes(idx)).length;
+                const totalCorrect = correctIndices.length;
+                const totalOptions = item.options.length;
+                const totalIncorrect = totalOptions - totalCorrect;
                 
-                totalCorrectlySelected += correctlySelected;
-                totalWronglySelected += wronglySelected;
-                totalCorrectOptions += correctIndices.length;
+                // Partial Credit with Deduction method for each question
+                const pointsPerCorrect = 1; // Normalized: totalCorrect / totalCorrect = 1
+                const penaltyPerIncorrect = totalIncorrect > 0 ? -(totalCorrect / totalIncorrect) : 0;
+                const questionScore = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect);
+                const finalQuestionScore = Math.max(0, questionScore);
+                
+                totalQuestionScores += finalQuestionScore;
+                totalCorrectOptions += totalCorrect;
               }
             });
             
-            const totalRawScore = totalCorrectlySelected - totalWronglySelected;
-            const totalFinalScore = Math.max(0, totalRawScore);
-            const totalScoreDisplay = totalCorrectOptions > 0 ? `${totalFinalScore} / ${totalCorrectOptions}` : "0 / 0";
+            const totalFinalScore = totalQuestionScores;
+            const totalScoreDisplay = totalCorrectOptions > 0 ? `${totalFinalScore.toFixed(2)} / ${totalCorrectOptions}` : "0 / 0";
             
             return (
               <div className="mb-4 p-3 bg-black/50 border border-white/30 rounded-lg">
@@ -678,7 +714,7 @@ export default function QuestionPage() {
                   </div>
                   {totalCorrectOptions > 0 && (
                     <div className="text-xs sm:text-sm text-white/70">
-                      ({totalCorrectlySelected} correct - {totalWronglySelected} wrong) / {totalCorrectOptions} total
+                      Sum of question scores: {totalFinalScore.toFixed(2)} / {totalCorrectOptions}
                     </div>
                   )}
                 </div>
@@ -809,18 +845,29 @@ export default function QuestionPage() {
             const lastItem = conversationHistory[conversationHistory.length - 1];
             const isLoading = isLoadingFeedback || !lastItem.hasFeedback;
             
-            // Calculate current question score with penalty system
+            // Calculate current question score with Partial Credit with Deduction method
             const correctIndices = lastItem.correctIndices || currentMCQ.correctIndices || [];
             const selectedIndices = lastItem.selectedIndices || [];
             const correctlySelected = selectedIndices.filter(idx => correctIndices.includes(idx)).length;
             const wronglySelected = selectedIndices.filter(idx => !correctIndices.includes(idx)).length;
             const totalCorrect = correctIndices.length;
+            const totalOptions = currentMCQ.options.length;
+            const totalIncorrect = totalOptions - totalCorrect;
             
-            // Score = (correctly selected - wrongly selected) / total correct, minimum 0
-            const rawScore = correctlySelected - wronglySelected;
-            const finalScore = Math.max(0, rawScore);
-            const scoreDisplay = totalCorrect > 0 ? `${finalScore} / ${totalCorrect}` : "0 / 0";
-            const calculation = `(${correctlySelected} correct - ${wronglySelected} wrong) / ${totalCorrect} = ${finalScore} / ${totalCorrect}`;
+            // Partial Credit with Deduction method:
+            // Points per correct = Total points / Number of correct options
+            // Penalty per incorrect = - (Total points) / Number of incorrect options
+            // Using totalCorrect as "Total points" for normalization
+            const pointsPerCorrect = 1; // Normalized: totalCorrect / totalCorrect = 1
+            const penaltyPerIncorrect = totalIncorrect > 0 ? -(totalCorrect / totalIncorrect) : 0;
+            
+            // Question Score = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect)
+            const questionScore = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect);
+            const finalScore = Math.max(0, questionScore);
+            const scoreDisplay = totalCorrect > 0 ? `${finalScore.toFixed(2)} / ${totalCorrect}` : "0 / 0";
+            const calculation = totalIncorrect > 0 
+              ? `(${correctlySelected} correct × ${pointsPerCorrect} point + ${wronglySelected} wrong × ${penaltyPerIncorrect.toFixed(2)} penalty) = ${questionScore.toFixed(2)} raw → ${finalScore.toFixed(2)} / ${totalCorrect} total correct`
+              : `(${correctlySelected} correct × ${pointsPerCorrect} point) = ${finalScore.toFixed(2)} / ${totalCorrect} total correct`;
             
             return (
               <div className="space-y-4 sm:space-y-6">

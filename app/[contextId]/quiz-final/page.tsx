@@ -295,28 +295,38 @@ export default function QuizFinalPage() {
     }
   };
 
-  // Calculate total score from conversation history
+  // Calculate total score from conversation history using Partial Credit with Deduction method
   const calculateTotalScore = () => {
+    let totalQuestionScores = 0;
+    let totalCorrectOptions = 0;
     let totalCorrectlySelected = 0;
     let totalWronglySelected = 0;
-    let totalCorrectOptions = 0;
     
     conversationHistory.forEach((item: ConversationItem) => {
-      if (item.isQuiz && item.hasFeedback && item.correctIndices) {
+      if (item.isQuiz && item.hasFeedback && item.correctIndices && item.options) {
         const correctIndices = item.correctIndices;
         const selectedIndices = item.selectedIndices || [];
         const correctlySelected = selectedIndices.filter(idx => correctIndices.includes(idx)).length;
         const wronglySelected = selectedIndices.filter(idx => !correctIndices.includes(idx)).length;
+        const totalCorrect = correctIndices.length;
+        const totalOptions = item.options.length;
+        const totalIncorrect = totalOptions - totalCorrect;
         
+        // Partial Credit with Deduction method for each question
+        const pointsPerCorrect = 1; // Normalized: totalCorrect / totalCorrect = 1
+        const penaltyPerIncorrect = totalIncorrect > 0 ? -(totalCorrect / totalIncorrect) : 0;
+        const questionScore = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect);
+        const finalQuestionScore = Math.max(0, questionScore);
+        
+        totalQuestionScores += finalQuestionScore;
+        totalCorrectOptions += totalCorrect;
         totalCorrectlySelected += correctlySelected;
         totalWronglySelected += wronglySelected;
-        totalCorrectOptions += correctIndices.length;
       }
     });
     
-    const totalRawScore = totalCorrectlySelected - totalWronglySelected;
-    const totalFinalScore = Math.max(0, totalRawScore);
-    const totalScoreDisplay = totalCorrectOptions > 0 ? `${totalFinalScore} / ${totalCorrectOptions}` : "0 / 0";
+    const totalFinalScore = totalQuestionScores;
+    const totalScoreDisplay = totalCorrectOptions > 0 ? `${totalFinalScore.toFixed(2)} / ${totalCorrectOptions}` : "0 / 0";
     
     return {
       totalCorrectlySelected,
@@ -353,7 +363,7 @@ export default function QuizFinalPage() {
             </div>
             {totalScore.totalCorrectOptions > 0 && (
               <div className="text-xs sm:text-sm text-white/70">
-                ({totalScore.totalCorrectlySelected} correct - {totalScore.totalWronglySelected} wrong) / {totalScore.totalCorrectOptions} total
+                Sum of question scores: {totalScore.totalFinalScore.toFixed(2)} / {totalScore.totalCorrectOptions}
               </div>
             )}
           </div>
@@ -600,12 +610,23 @@ export default function QuizFinalPage() {
                 const correctlySelected = selectedIndices.filter(idx => correctIndices.includes(idx)).length;
                 const wronglySelected = selectedIndices.filter(idx => !correctIndices.includes(idx)).length;
                 const totalCorrect = correctIndices.length;
+                const totalOptions = item.options?.length || 0;
+                const totalIncorrect = totalOptions - totalCorrect;
                 
-                // Score = (correctly selected - wrongly selected) / total correct, minimum 0
-                const rawScore = correctlySelected - wronglySelected;
-                const finalScore = Math.max(0, rawScore);
-                const scoreDisplay = totalCorrect > 0 ? `${finalScore} / ${totalCorrect}` : "0 / 0";
-                const calculation = `(${correctlySelected} correct - ${wronglySelected} wrong) / ${totalCorrect} = ${finalScore} / ${totalCorrect}`;
+                // Partial Credit with Deduction method:
+                // Points per correct = Total points / Number of correct options
+                // Penalty per incorrect = - (Total points) / Number of incorrect options
+                // Using totalCorrect as "Total points" for normalization
+                const pointsPerCorrect = 1; // Normalized: totalCorrect / totalCorrect = 1
+                const penaltyPerIncorrect = totalIncorrect > 0 ? -(totalCorrect / totalIncorrect) : 0;
+                
+                // Question Score = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect)
+                const questionScore = (correctlySelected * pointsPerCorrect) + (wronglySelected * penaltyPerIncorrect);
+                const finalScore = Math.max(0, questionScore);
+                const scoreDisplay = totalCorrect > 0 ? `${finalScore.toFixed(2)} / ${totalCorrect}` : "0 / 0";
+                const calculation = totalIncorrect > 0 
+                  ? `(${correctlySelected} correct × ${pointsPerCorrect} point + ${wronglySelected} wrong × ${penaltyPerIncorrect.toFixed(2)} penalty) = ${questionScore.toFixed(2)} raw → ${finalScore.toFixed(2)} / ${totalCorrect} total correct`
+                  : `(${correctlySelected} correct × ${pointsPerCorrect} point) = ${finalScore.toFixed(2)} / ${totalCorrect} total correct`;
 
                 return (
                   <div className="space-y-4 sm:space-y-6">
