@@ -15,7 +15,7 @@ export default function ConversationSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
   const [currentContext, setCurrentContext] = useState("");
   const [activeContextId, setActiveContextId] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -94,6 +94,13 @@ export default function ConversationSidebar() {
   };
 
   useEffect(() => {
+    // Set initial expanded state based on viewport width
+    // lg breakpoint is 1024px - expand by default on wide screens
+    if (typeof window !== "undefined") {
+      const isWideViewport = window.innerWidth >= 1024;
+      setIsExpanded(isWideViewport);
+    }
+
     loadConversations();
     loadCurrentContext();
     
