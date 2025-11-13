@@ -113,12 +113,18 @@ export default function ConversationSidebar() {
       localStorage.removeItem("lazy-writer-active-context-id");
     };
     
+    // Listen for sidebar toggle from header
+    const handleToggleSidebar = () => {
+      setIsExpanded((prev) => !prev);
+    };
+
     window.addEventListener("storage", handleStorageChange);
     window.addEventListener("conversation-updated", handleStorageChange);
     window.addEventListener("context-changed", handleContextChange as EventListener);
     window.addEventListener("conversation-loaded", handleConversationLoad as EventListener);
     window.addEventListener("new-conversation", handleConversationClear);
     window.addEventListener("conversation-cleared", handleConversationClear);
+    window.addEventListener("toggle-sidebar", handleToggleSidebar);
     
     return () => {
       window.removeEventListener("storage", handleStorageChange);
@@ -127,6 +133,7 @@ export default function ConversationSidebar() {
       window.removeEventListener("conversation-loaded", handleConversationLoad as EventListener);
       window.removeEventListener("new-conversation", handleConversationClear);
       window.removeEventListener("conversation-cleared", handleConversationClear);
+      window.removeEventListener("toggle-sidebar", handleToggleSidebar);
     };
   }, []);
 
@@ -197,15 +204,51 @@ export default function ConversationSidebar() {
   };
 
   return (
-    <div className={`flex flex-col h-full bg-black border-r border-white/20 transition-all duration-300 ${
-      isExpanded ? "w-80" : "w-12"
-    }`}>
+    <>
+      {/* Mobile overlay backdrop */}
+      {isExpanded && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+      <div className={`flex flex-col h-full bg-black border-r border-white/20 transition-all duration-300 ${
+        isExpanded ? "w-80" : "w-12"
+      } fixed lg:relative inset-y-0 left-0 z-40 lg:z-auto ${
+        isExpanded ? "" : "-translate-x-full lg:translate-x-0"
+      }`}>
       {/* Header with toggle */}
-      <div className="p-4 border-b border-white/20 flex items-center justify-between">
+      <div className={`${isExpanded ? "p-4" : "p-2"} border-b border-white/20 flex items-center justify-between`}>
         {isExpanded ? (
-          <h2 className="text-lg font-semibold text-white">Conversations</h2>
+          <>
+            <h2 className="text-lg font-semibold text-white">Conversations</h2>
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-2 hover:bg-white/10 rounded transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5 text-white transition-transform"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 19.5L8.25 12l7.5-7.5"
+                />
+              </svg>
+            </button>
+          </>
         ) : (
-          <div className="w-full flex justify-center">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex justify-center p-1 hover:bg-white/10 rounded transition-colors"
+            aria-label="Expand sidebar"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -220,30 +263,8 @@ export default function ConversationSidebar() {
                 d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"
               />
             </svg>
-          </div>
+          </button>
         )}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="p-2 hover:bg-white/10 rounded transition-colors"
-          aria-label={isExpanded ? "Collapse sidebar" : "Expand sidebar"}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className={`w-5 h-5 text-white transition-transform ${
-              isExpanded ? "" : "rotate-180"
-            }`}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 19.5L8.25 12l7.5-7.5"
-            />
-          </svg>
-        </button>
       </div>
 
       {/* Content */}
@@ -359,34 +380,34 @@ export default function ConversationSidebar() {
           onClick={handleDeleteCancel}
         >
           <div 
-            className="bg-black border-2 border-white rounded-lg max-w-lg w-full p-6 space-y-6"
+            className="bg-black border-2 border-white rounded-lg max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-2xl font-semibold text-white">Delete Conversation</h2>
+            <h2 className="text-xl sm:text-2xl font-semibold text-white">Delete Conversation</h2>
             
-            <p className="text-white/90">
+            <p className="text-white/90 text-sm sm:text-base">
               Are you sure you want to delete this conversation? This action cannot be undone.
             </p>
 
             {/* Conversation Preview */}
-            <div className="p-4 bg-white/5 border border-white/20 rounded">
+            <div className="p-3 sm:p-4 bg-white/5 border border-white/20 rounded">
               <p className="text-white/60 text-xs mb-2">Conversation:</p>
-              <p className="text-white text-sm">
+              <p className="text-white text-xs sm:text-sm">
                 {truncateText(conversationToDelete.context, 100)}
               </p>
             </div>
 
             {/* Modal Buttons */}
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
               <button
                 onClick={handleDeleteCancel}
-                className="flex-1 py-3 px-6 bg-white/20 text-white font-medium rounded transition-opacity hover:opacity-90"
+                className="flex-1 py-3 px-6 bg-white/20 text-white font-medium rounded transition-opacity hover:opacity-90 min-h-[44px] text-sm sm:text-base"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors"
+                className="flex-1 py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-medium rounded transition-colors min-h-[44px] text-sm sm:text-base"
               >
                 Delete
               </button>
@@ -394,7 +415,8 @@ export default function ConversationSidebar() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

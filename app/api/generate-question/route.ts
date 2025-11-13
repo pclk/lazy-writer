@@ -5,7 +5,7 @@ import { join } from "path";
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
-    const { context, conversationHistory, systemPrompt, apiKey, model } = requestBody;
+    const { context, conversationHistory, systemPrompt, questionPrompt, quizPrompt, apiKey, model, mode = "writer" } = requestBody;
 
     // Log the incoming request
     console.log("=== Generate Question API Request ===");
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
     console.log("Context length:", context?.length);
     console.log("Conversation history:", conversationHistory);
     console.log("System prompt present:", !!systemPrompt);
+    console.log("Mode:", mode);
     console.log("API key present:", !!apiKey);
 
     if (!apiKey || typeof apiKey !== "string") {
@@ -33,18 +34,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load system prompt - prefer provided one, otherwise load from file
-    let prompt = systemPrompt;
-    if (!prompt) {
-      try {
-        const filePath = join(process.cwd(), "data", "question_prompt.txt");
-        prompt = await readFile(filePath, "utf-8");
-      } catch (error) {
-        console.error("Error reading question prompt file:", error);
-        return NextResponse.json(
-          { error: "Failed to load system prompt" },
-          { status: 500 }
-        );
+    // Load prompt based on mode - prefer provided custom prompt, otherwise load from file
+    let prompt: string;
+    const isQuizMode = mode === "quiz";
+    
+    if (isQuizMode) {
+      // Quiz mode: use quizPrompt if provided, otherwise load from file
+      prompt = quizPrompt;
+      if (!prompt) {
+        try {
+          const filePath = join(process.cwd(), "data", "quiz_prompt.txt");
+          prompt = await readFile(filePath, "utf-8");
+        } catch (error) {
+          console.error("Error reading quiz prompt file:", error);
+          return NextResponse.json(
+            { error: "Failed to load quiz prompt" },
+            { status: 500 }
+          );
+        }
+      }
+    } else {
+      // Writer mode: use questionPrompt if provided, otherwise load from file
+      prompt = questionPrompt;
+      if (!prompt) {
+        try {
+          const filePath = join(process.cwd(), "data", "question_prompt.txt");
+          prompt = await readFile(filePath, "utf-8");
+        } catch (error) {
+          console.error("Error reading question prompt file:", error);
+          return NextResponse.json(
+            { error: "Failed to load question prompt" },
+            { status: 500 }
+          );
+        }
       }
     }
 
@@ -354,19 +376,47 @@ export async function POST(request: NextRequest) {
             console.log(`[API] No final options match found`);
           }
 
+          // Extract correctIndices for quiz mode
+          let finalCorrectIndices: number[] = [];
+          if (isQuizMode) {
+            const correctIndicesMatch = jsonText.match(/"correctIndices"\s*:\s*\[([\s\S]*?)\]/);
+            if (correctIndicesMatch) {
+              console.log(`[API] Final correctIndices match found. Content: ${correctIndicesMatch[1]}`);
+              const indicesContent = correctIndicesMatch[1];
+              const indices = indicesContent.split(",").map((s: string) => parseInt(s.trim())).filter((n: number) => !isNaN(n));
+              finalCorrectIndices = indices;
+              console.log(`[API] Final correctIndices extracted: ${finalCorrectIndices.length} indices`);
+            } else {
+              // Try parsing as JSON to get correctIndices
+              try {
+                const parsed = JSON.parse(jsonText);
+                if (parsed.correctIndices && Array.isArray(parsed.correctIndices)) {
+                  finalCorrectIndices = parsed.correctIndices;
+                  console.log(`[API] Final correctIndices extracted from JSON: ${finalCorrectIndices.length} indices`);
+                }
+              } catch (e) {
+                console.log(`[API] No final correctIndices found`);
+              }
+            }
+          }
+
           // Send final MCQ data
           if (finalQuestion || finalOptions.length > 0) {
-            const finalMcqData: { question?: string; options?: string[] } = {};
+            const finalMcqData: { question?: string; options?: string[]; correctIndices?: number[] } = {};
             if (finalQuestion) {
               finalMcqData.question = finalQuestion;
             }
             if (finalOptions.length > 0) {
               finalMcqData.options = finalOptions;
             }
+            if (isQuizMode && finalCorrectIndices.length > 0) {
+              finalMcqData.correctIndices = finalCorrectIndices;
+            }
             console.log(`[API] Sending final MCQ data:`, {
               hasQuestion: !!finalMcqData.question,
               questionLength: finalMcqData.question?.length || 0,
               optionsCount: finalMcqData.options?.length || 0,
+              correctIndicesCount: finalMcqData.correctIndices?.length || 0,
             });
             controller.enqueue(
               new TextEncoder().encode(`data: ${JSON.stringify({ type: "mcq", ...finalMcqData })}\n\n`)

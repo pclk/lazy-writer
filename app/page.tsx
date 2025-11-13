@@ -26,6 +26,7 @@ export default function Home() {
   const [isNavigating, setIsNavigating] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationItem[]>([]);
   const [activeContextId, setActiveContextId] = useState<string | null>(null);
+  const [mode, setMode] = useState<"writer" | "quiz">("writer");
 
   const loadModels = async (apiKeyToUse: string) => {
     setIsLoadingModels(true);
@@ -90,6 +91,12 @@ export default function Home() {
     const savedContext = localStorage.getItem("lazy-writer-context");
     if (savedContext) {
       setContext(savedContext);
+    }
+    
+    // Load saved mode if exists
+    const savedMode = localStorage.getItem("lazy-writer-mode");
+    if (savedMode === "writer" || savedMode === "quiz") {
+      setMode(savedMode);
     }
     
     // Load models if API key is already saved
@@ -255,12 +262,15 @@ export default function Home() {
     // Store model for this session
     localStorage.setItem("lazy-writer-model", model);
     
+    // Store mode for this session
+    localStorage.setItem("lazy-writer-mode", mode);
+    
     // Notify sidebar of conversation update
     window.dispatchEvent(new Event("conversation-updated"));
     window.dispatchEvent(new CustomEvent("conversation-loaded", { detail: { contextId } }));
     
-    // Navigate immediately using replace to avoid history issues
-    router.replace(`/${contextId}`);
+    // Navigate immediately using replace to avoid history issues, with mode as query param
+    router.replace(`/${contextId}?mode=${mode}`);
   };
 
   // Notify sidebar of context changes
@@ -279,13 +289,45 @@ export default function Home() {
   }, [context, activeContextId]);
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className={`${conversationHistory.length > 0 ? "flex gap-6 items-start" : ""}`}>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
+      <div className={`${conversationHistory.length > 0 ? "flex flex-col lg:flex-row gap-6 items-start" : ""}`}>
         {/* Left Side: Main Content */}
-        <div className={`${conversationHistory.length > 0 ? "flex-1" : "w-full"}`}>
+        <div className={`${conversationHistory.length > 0 ? "flex-1 w-full lg:w-auto" : "w-full"}`}>
+          {/* Mode Tabs */}
+          <div className="mb-4 lg:mb-6">
+            <div className="flex gap-2 border-b border-white/30">
+              <button
+                onClick={() => {
+                  setMode("writer");
+                  localStorage.setItem("lazy-writer-mode", "writer");
+                }}
+                className={`px-4 py-2 text-sm lg:text-base font-medium transition-colors border-b-2 ${
+                  mode === "writer"
+                    ? "border-[#fbbc4f] text-[#fbbc4f]"
+                    : "border-transparent text-white/70 hover:text-white"
+                }`}
+              >
+                Writer
+              </button>
+              <button
+                onClick={() => {
+                  setMode("quiz");
+                  localStorage.setItem("lazy-writer-mode", "quiz");
+                }}
+                className={`px-4 py-2 text-sm lg:text-base font-medium transition-colors border-b-2 ${
+                  mode === "quiz"
+                    ? "border-[#fbbc4f] text-[#fbbc4f]"
+                    : "border-transparent text-white/70 hover:text-white"
+                }`}
+              >
+                Quizer
+              </button>
+            </div>
+          </div>
+          
           {/* API Key Field */}
-      <div className="">
-        <label htmlFor="api-key" className="block text-lg font-medium mb-2">
+      <div className="mb-4 lg:mb-6">
+        <label htmlFor="api-key" className="block text-base lg:text-lg font-medium mb-2">
           Gemini API Key
         </label>
         <div className="flex items-center gap-2">
@@ -299,12 +341,12 @@ export default function Home() {
               setGreeting("");
             }}
             placeholder="AIz******************..."
-            className="flex-1 p-3 bg-black border border-white text-white rounded focus:outline-none focus:border-[#fbbc4f]"
+            className="flex-1 p-2.5 lg:p-3 bg-black border border-white text-white rounded focus:outline-none focus:border-[#fbbc4f] text-sm lg:text-base"
           />
           <button
             onClick={handleSaveApiKey}
             disabled={isTesting || apiKey.trim().includes("*")}
-            className={`p-3 rounded transition-colors ${
+            className={`p-2.5 lg:p-3 rounded transition-colors min-w-[44px] min-h-[44px] ${
               isApiKeySaved
                 ? "bg-[#fbbc4f] text-black"
                 : "bg-white text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -380,8 +422,8 @@ export default function Home() {
       </p>
       
       {/* Model Selection */}
-      <div className="mb-6">
-        <label htmlFor="model" className="block text-lg font-medium mb-2">
+      <div className="mb-4 lg:mb-6">
+        <label htmlFor="model" className="block text-base lg:text-lg font-medium mb-2">
           Model
         </label>
         <select
@@ -392,7 +434,7 @@ export default function Home() {
             localStorage.setItem("lazy-writer-model", e.target.value);
           }}
           disabled={!isApiKeySaved || isLoadingModels || models.length === 0}
-          className="w-full p-3 bg-black border border-white text-white rounded focus:outline-none focus:border-[#fbbc4f] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full p-2.5 lg:p-3 bg-black border border-white text-white rounded focus:outline-none focus:border-[#fbbc4f] disabled:opacity-50 disabled:cursor-not-allowed text-sm lg:text-base min-h-[44px]"
         >
           {isLoadingModels ? (
             <option>Loading models...</option>
@@ -419,8 +461,8 @@ export default function Home() {
       </div>
       
       {/* Context Field */}
-      <div className="mb-6">
-        <label htmlFor="context" className="block text-lg font-medium mb-2">
+      <div className="mb-4 lg:mb-6">
+        <label htmlFor="context" className="block text-base lg:text-lg font-medium mb-2">
           Context
         </label>
         <textarea
@@ -428,7 +470,7 @@ export default function Home() {
           value={context}
           onChange={(e) => setContext(e.target.value)}
           placeholder="I went through a survival course during my time in the army. I was the leader, and I have to write an essay on my time as a leader."
-          className="w-full h-48 p-3 bg-black border border-white text-white rounded resize-none focus:outline-none focus:border-[#fbbc4f]"
+          className="w-full h-40 lg:h-48 p-2.5 lg:p-3 bg-black border border-white text-white rounded resize-none focus:outline-none focus:border-[#fbbc4f] text-sm lg:text-base"
         />
       </div>
 
@@ -436,7 +478,7 @@ export default function Home() {
       <button
         onClick={handleQuestionMe}
         disabled={!isApiKeySaved || !context.trim() || isNavigating}
-        className="w-full py-3 px-6 bg-white text-black font-medium rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="w-full py-3 px-6 bg-white text-black font-medium rounded transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px] text-sm lg:text-base"
       >
         {isNavigating ? (
           <>
@@ -470,9 +512,9 @@ export default function Home() {
 
         {/* Right Side: Previous Questions */}
         {conversationHistory.length > 0 && (
-          <div className="w-80 shrink-0">
-            <h2 className="text-xl font-semibold text-white mb-4">Previous Questions</h2>
-            <div className="space-y-4 max-h-[600px] overflow-y-auto">
+          <div className="w-full lg:w-80 shrink-0 mt-6 lg:mt-0">
+            <h2 className="text-lg lg:text-xl font-semibold text-white mb-4">Previous Questions</h2>
+            <div className="space-y-4 max-h-[400px] lg:max-h-[600px] overflow-y-auto">
               {conversationHistory.map((item, idx) => (
                 <div key={idx} className="border-l-2 border-white/30 pl-4 space-y-2">
                   <p className="text-white font-medium text-sm">Q: {item.question}</p>
