@@ -5,7 +5,7 @@ import { join } from "path";
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
-    const { context, conversationHistory, refinement, apiKey, model } = requestBody;
+    const { context, conversationHistory, refinement, finalizePrompt, apiKey, model } = requestBody;
 
     // Log the incoming request
     console.log("=== Finalize API Request ===");
@@ -30,17 +30,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Load finalize prompt from file
-    let prompt;
-    try {
-      const filePath = join(process.cwd(), "data", "finalize_prompt.txt");
-      prompt = await readFile(filePath, "utf-8");
-    } catch (error) {
-      console.error("Error reading finalize prompt file:", error);
-      return NextResponse.json(
-        { error: "Failed to load finalize prompt" },
-        { status: 500 }
-      );
+    // Load finalize prompt - use provided custom prompt or fallback to file
+    let prompt: string;
+    if (finalizePrompt && typeof finalizePrompt === "string" && finalizePrompt.trim()) {
+      prompt = finalizePrompt.trim();
+    } else {
+      try {
+        const filePath = join(process.cwd(), "data", "finalize_prompt.txt");
+        prompt = await readFile(filePath, "utf-8");
+      } catch (error) {
+        console.error("Error reading finalize prompt file:", error);
+        return NextResponse.json(
+          { error: "Failed to load finalize prompt" },
+          { status: 500 }
+        );
+      }
     }
 
     // Build the full context with conversation history (same format as generate-question)

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import MCQ from "../components/MCQ";
 
 interface ConversationItem {
@@ -33,7 +34,6 @@ export default function QuestionPage() {
   const [errorModels, setErrorModels] = useState<Array<{ name: string; displayName: string; description: string }>>([]);
   const [isLoadingErrorModels, setIsLoadingErrorModels] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<ConversationItem[]>([]);
-  const [systemPrompt, setSystemPrompt] = useState("");
   const [questionPrompt, setQuestionPrompt] = useState("");
   const [quizPrompt, setQuizPrompt] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -81,25 +81,6 @@ export default function QuestionPage() {
     if (savedModel) {
       setModel(savedModel);
       setFinalizeModel(savedModel);
-    }
-
-    // Load system prompt
-    const savedSystemPrompt = localStorage.getItem("lazy-writer-system-prompt");
-    if (savedSystemPrompt) {
-      setSystemPrompt(savedSystemPrompt);
-    } else {
-      // Load default from API
-      fetch("/api/system-prompt")
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.prompt) {
-            setSystemPrompt(data.prompt);
-            localStorage.setItem("lazy-writer-system-prompt", data.prompt);
-          }
-        })
-        .catch((error) => {
-          console.error("Error loading system prompt:", error);
-        });
     }
 
     // Load question prompt
@@ -177,7 +158,6 @@ export default function QuestionPage() {
     const requestBody = {
       context: currentContext,
       conversationHistory: history,
-      systemPrompt: systemPrompt || undefined,
       questionPrompt: mode === "writer" ? (questionPrompt || undefined) : undefined,
       quizPrompt: mode === "quiz" ? (quizPrompt || undefined) : undefined,
       apiKey: apiKey,
@@ -191,7 +171,6 @@ export default function QuestionPage() {
     console.log("Context type:", typeof currentContext);
     console.log("Context length:", currentContext?.length);
     console.log("Conversation history:", history);
-    console.log("System prompt:", systemPrompt);
     console.log("API key present:", !!apiKey);
 
     try {
@@ -896,7 +875,34 @@ export default function QuestionPage() {
                 {/* Overall Feedback */}
                 {!isLoading && lastItem.feedback && (
                   <div className="mb-4 p-3 bg-black/50 border border-white/30 rounded-lg">
-                    <p className="text-white/90 text-sm sm:text-base">{lastItem.feedback}</p>
+                    <div className="prose prose-invert max-w-none text-white/90 text-sm sm:text-base">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                          h1: ({ children }) => <h1 className="text-xl font-bold mb-2 mt-4 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-lg font-bold mb-2 mt-4 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-base font-bold mb-2 mt-3 first:mt-0">{children}</h3>,
+                          ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li className="ml-2">{children}</li>,
+                          code: ({ children, className }) => {
+                            const isInline = !className;
+                            return isInline ? (
+                              <code className="bg-black/70 px-1 py-0.5 rounded text-[#fbbc4f] text-xs">{children}</code>
+                            ) : (
+                              <code className="block bg-black/70 p-2 rounded text-[#fbbc4f] text-xs overflow-x-auto">{children}</code>
+                            );
+                          },
+                          pre: ({ children }) => <pre className="bg-black/70 p-2 rounded mb-2 overflow-x-auto">{children}</pre>,
+                          blockquote: ({ children }) => <blockquote className="border-l-4 border-white/30 pl-4 italic my-2">{children}</blockquote>,
+                          a: ({ href, children }) => <a href={href} className="text-[#fbbc4f] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                          strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="italic">{children}</em>,
+                        }}
+                      >
+                        {lastItem.feedback}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 )}
                 
@@ -961,9 +967,34 @@ export default function QuestionPage() {
                               )}
                             </div>
                             {!isLoading && optionFeedback?.explanation && (
-                              <p className="text-white/70 text-xs sm:text-sm mt-2">
-                                {optionFeedback.explanation}
-                              </p>
+                              <div className="text-white/70 text-xs sm:text-sm mt-2 prose prose-invert max-w-none">
+                                <ReactMarkdown
+                                  components={{
+                                    p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                                    h1: ({ children }) => <h1 className="text-base font-bold mb-1 mt-2 first:mt-0">{children}</h1>,
+                                    h2: ({ children }) => <h2 className="text-sm font-bold mb-1 mt-2 first:mt-0">{children}</h2>,
+                                    h3: ({ children }) => <h3 className="text-xs font-bold mb-1 mt-1 first:mt-0">{children}</h3>,
+                                    ul: ({ children }) => <ul className="list-disc list-inside mb-1 space-y-0.5">{children}</ul>,
+                                    ol: ({ children }) => <ol className="list-decimal list-inside mb-1 space-y-0.5">{children}</ol>,
+                                    li: ({ children }) => <li className="ml-1">{children}</li>,
+                                    code: ({ children, className }) => {
+                                      const isInline = !className;
+                                      return isInline ? (
+                                        <code className="bg-black/70 px-1 py-0.5 rounded text-[#fbbc4f] text-xs">{children}</code>
+                                      ) : (
+                                        <code className="block bg-black/70 p-1 rounded text-[#fbbc4f] text-xs overflow-x-auto">{children}</code>
+                                      );
+                                    },
+                                    pre: ({ children }) => <pre className="bg-black/70 p-1 rounded mb-1 overflow-x-auto">{children}</pre>,
+                                    blockquote: ({ children }) => <blockquote className="border-l-2 border-white/30 pl-2 italic my-1">{children}</blockquote>,
+                                    a: ({ href, children }) => <a href={href} className="text-[#fbbc4f] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                                    em: ({ children }) => <em className="italic">{children}</em>,
+                                  }}
+                                >
+                                  {optionFeedback.explanation}
+                                </ReactMarkdown>
+                              </div>
                             )}
                           </div>
                         </div>

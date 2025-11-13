@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
-    const { context, conversationHistory, apiKey, model } = requestBody;
+    const { context, conversationHistory, refinement, quizFinalizePrompt, apiKey, model } = requestBody;
 
     if (!apiKey || typeof apiKey !== "string") {
       return NextResponse.json(
@@ -37,22 +39,33 @@ export async function POST(request: NextRequest) {
         .join("\n---\n\n");
     }
 
-    // Build analysis prompt
-    const analysisPrompt = `You are an expert educator analyzing a student's quiz performance.
+    // Load prompt - use provided custom prompt or fallback to file
+    let promptTemplate: string;
+    if (quizFinalizePrompt && typeof quizFinalizePrompt === "string" && quizFinalizePrompt.trim()) {
+      promptTemplate = quizFinalizePrompt.trim();
+    } else {
+      try {
+        const filePath = join(process.cwd(), "data", "quiz_finalize_prompt.txt");
+        promptTemplate = await readFile(filePath, "utf-8");
+      } catch (error) {
+        console.error("Error reading quiz finalize prompt file:", error);
+        return NextResponse.json(
+          { error: "Failed to load quiz finalize prompt" },
+          { status: 500 }
+        );
+      }
+    }
 
-Context/Topic: ${context}
+    // Replace placeholders in prompt template
+    let analysisPrompt = promptTemplate
+      .replace(/{Context}/g, context)
+      .replace(/{QuizHistory}/g, historyText || "No quiz history available.");
 
-Quiz History:
-${historyText || "No quiz history available."}
-
-Please analyze the student's performance and provide:
-1. Overall performance assessment
-2. Strengths (what they did well)
-3. Areas for improvement (what needs work)
-4. Recommended next topics to learn (if performance is good)
-5. Recommended areas to review (if performance needs improvement)
-
-Format your response as a comprehensive analysis that is encouraging but honest.`;
+    // Append refinement if provided
+    let finalPrompt = analysisPrompt;
+    if (refinement && typeof refinement === "string" && refinement.trim()) {
+      finalPrompt += `\n\nUser's refinement request: ${refinement.trim()}\n\nPlease refine the analysis according to the user's request above.`;
+    }
 
     // Call Gemini API with streaming
     const selectedModel = model || "gemini-flash-latest";
@@ -68,7 +81,7 @@ Format your response as a comprehensive analysis that is encouraging but honest.
             {
               parts: [
                 {
-                  text: analysisPrompt,
+                  text: finalPrompt,
                 },
               ],
             },

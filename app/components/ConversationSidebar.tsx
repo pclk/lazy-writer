@@ -7,6 +7,7 @@ interface Conversation {
   contextId: string;
   context: string;
   questionCount: number;
+  mode?: "writer" | "quiz";
   isNew?: boolean;
 }
 
@@ -37,12 +38,26 @@ export default function ConversationSidebar() {
         const historyStr = localStorage.getItem(historyKey);
         
         let questionCount = 0;
+        let mode: "writer" | "quiz" | undefined = undefined;
         if (historyStr) {
           try {
             const history = JSON.parse(historyStr);
             questionCount = Array.isArray(history) ? history.length : 0;
+            // Determine mode by checking if any items in history are quiz items
+            if (Array.isArray(history) && history.length > 0) {
+              const hasQuizItems = history.some((item: any) => item.isQuiz === true);
+              mode = hasQuizItems ? "quiz" : "writer";
+            }
           } catch (e) {
             console.error("Error parsing history:", e);
+          }
+        }
+        
+        // If no history, try to get mode from localStorage (for new conversations)
+        if (!mode) {
+          const savedMode = localStorage.getItem("lazy-writer-mode");
+          if (savedMode === "quiz" || savedMode === "writer") {
+            mode = savedMode as "writer" | "quiz";
           }
         }
         
@@ -50,6 +65,7 @@ export default function ConversationSidebar() {
           contextId,
           context,
           questionCount,
+          mode,
         });
       }
     }
@@ -336,9 +352,20 @@ export default function ConversationSidebar() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-medium truncate">
-                          {truncateText(conv.context)}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-white text-sm font-medium truncate">
+                            {truncateText(conv.context)}
+                          </p>
+                          {conv.mode && (
+                            <span className={`px-2 py-0.5 text-xs font-semibold rounded shrink-0 ${
+                              conv.mode === "quiz"
+                                ? "bg-[#fbbc4f] text-black"
+                                : "bg-white/20 text-white"
+                            }`}>
+                              {conv.mode === "quiz" ? "Quizer" : "Writer"}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-white/60 text-xs mt-1">
                           {conv.questionCount} {conv.questionCount === 1 ? "question" : "questions"}
                         </p>

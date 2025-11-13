@@ -5,7 +5,7 @@ import { join } from "path";
 export async function POST(request: NextRequest) {
   try {
     const requestBody = await request.json();
-    const { context, conversationHistory, systemPrompt, questionPrompt, quizPrompt, apiKey, model, mode = "writer" } = requestBody;
+    const { context, conversationHistory, questionPrompt, quizPrompt, apiKey, model, mode = "writer" } = requestBody;
 
     // Log the incoming request
     console.log("=== Generate Question API Request ===");
@@ -14,7 +14,6 @@ export async function POST(request: NextRequest) {
     console.log("Context type:", typeof context);
     console.log("Context length:", context?.length);
     console.log("Conversation history:", conversationHistory);
-    console.log("System prompt present:", !!systemPrompt);
     console.log("Mode:", mode);
     console.log("API key present:", !!apiKey);
 

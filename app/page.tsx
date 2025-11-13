@@ -324,6 +324,34 @@ export default function Home() {
               </button>
             </div>
           </div>
+
+          {/* About Section */}
+          <div className="mb-4 lg:mb-6 p-4 bg-black/50 border border-white/30 rounded-lg">
+            <h3 className="text-sm lg:text-base font-semibold text-white mb-2">About {mode === "writer" ? "Writer" : "Quizer"}</h3>
+            {mode === "writer" ? (
+              <div className="text-xs lg:text-sm text-white/80 space-y-2">
+                <p>
+                  <strong className="text-white">Writer mode</strong> helps you develop your thoughts and ideas through a series of questions. 
+                  The AI asks you questions based on your context, and you provide answers to build your understanding.
+                </p>
+                <p>
+                  After answering questions, you can finalize your responses into a polished essay or message. 
+                  You can also refine the final output with custom instructions.
+                </p>
+              </div>
+            ) : (
+              <div className="text-xs lg:text-sm text-white/80 space-y-2">
+                <p>
+                  <strong className="text-white">Quizer mode</strong> tests your understanding of a topic through multiple-choice questions. 
+                  The AI generates questions with one or more correct answers based on your context.
+                </p>
+                <p>
+                  After submitting your answers, you'll receive immediate feedback on each option, including explanations. 
+                  Your performance is tracked with a scoring system, and you can view a comprehensive analysis of your quiz performance.
+                </p>
+              </div>
+            )}
+          </div>
           
           {/* API Key Field */}
       <div className="mb-4 lg:mb-6">

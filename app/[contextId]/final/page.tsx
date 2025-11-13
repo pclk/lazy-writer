@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 
 interface ConversationItem {
   question: string;
@@ -21,6 +22,7 @@ export default function FinalPage() {
   const [model, setModel] = useState("gemini-flash-latest");
   const [essay, setEssay] = useState("");
   const [refinement, setRefinement] = useState("");
+  const [finalizePrompt, setFinalizePrompt] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRefining, setIsRefining] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +62,25 @@ export default function FinalPage() {
       setModel(savedFinalizeModel);
     } else if (savedModel) {
       setModel(savedModel);
+    }
+
+    // Load finalize prompt
+    const savedFinalizePrompt = localStorage.getItem("lazy-writer-finalize-prompt");
+    if (savedFinalizePrompt) {
+      setFinalizePrompt(savedFinalizePrompt);
+    } else {
+      // Load default from API
+      fetch("/api/finalize-prompt")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.prompt) {
+            setFinalizePrompt(data.prompt);
+            localStorage.setItem("lazy-writer-finalize-prompt", data.prompt);
+          }
+        })
+        .catch((error) => {
+          console.error("Error loading default finalize prompt:", error);
+        });
     }
   }, [contextId]);
 
@@ -140,6 +161,7 @@ export default function FinalPage() {
           context: context,
           conversationHistory: conversationHistory,
           refinement: refinementText || undefined,
+          finalizePrompt: finalizePrompt || undefined,
           apiKey: apiKey,
           model: selectedModel,
         }),
@@ -384,8 +406,35 @@ export default function FinalPage() {
           {/* Essay Display */}
           <div className="mb-8">
             <div className="p-6 bg-black border border-white rounded">
-              <div className="prose prose-invert max-w-none">
-                <p className="text-white whitespace-pre-wrap leading-relaxed">{essay}</p>
+              <div className="prose prose-invert max-w-none text-white leading-relaxed">
+                <ReactMarkdown
+                  components={{
+                    p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
+                    h1: ({ children }) => <h1 className="text-3xl font-bold mb-4 mt-6 first:mt-0">{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-2xl font-bold mb-3 mt-5 first:mt-0">{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-xl font-bold mb-2 mt-4 first:mt-0">{children}</h3>,
+                    h4: ({ children }) => <h4 className="text-lg font-bold mb-2 mt-3 first:mt-0">{children}</h4>,
+                    ul: ({ children }) => <ul className="list-disc list-inside mb-4 space-y-2 ml-4">{children}</ul>,
+                    ol: ({ children }) => <ol className="list-decimal list-inside mb-4 space-y-2 ml-4">{children}</ol>,
+                    li: ({ children }) => <li className="ml-2">{children}</li>,
+                    code: ({ children, className }) => {
+                      const isInline = !className;
+                      return isInline ? (
+                        <code className="bg-black/70 px-1.5 py-0.5 rounded text-[#fbbc4f] text-sm">{children}</code>
+                      ) : (
+                        <code className="block bg-black/70 p-3 rounded mb-4 text-[#fbbc4f] text-sm overflow-x-auto">{children}</code>
+                      );
+                    },
+                    pre: ({ children }) => <pre className="bg-black/70 p-3 rounded mb-4 overflow-x-auto">{children}</pre>,
+                    blockquote: ({ children }) => <blockquote className="border-l-4 border-white/30 pl-4 italic my-4">{children}</blockquote>,
+                    a: ({ href, children }) => <a href={href} className="text-[#fbbc4f] hover:underline" target="_blank" rel="noopener noreferrer">{children}</a>,
+                    strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                    em: ({ children }) => <em className="italic">{children}</em>,
+                    hr: () => <hr className="my-6 border-white/30" />,
+                  }}
+                >
+                  {essay}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
